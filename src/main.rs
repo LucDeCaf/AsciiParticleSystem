@@ -1,29 +1,32 @@
-use std::{thread::sleep, time::Duration};
+// TODO: Stop allocating new array for frame_data on every frame
+// TODO: Add more parameters for controlling simulation
+// TODO: Test on larger terminal and slow down simulation speed
+
+mod vector2;
+use vector2::Vector2;
+
+use std::{thread::sleep, time::Duration, vec};
 
 use rand::prelude::*;
 
 struct Particle {
-    x: f32,
-    y: f32,
+    position: Vector2<f32>,
+    velocity: Vector2<f32>,
     influence: f32,
-    velocity: (f32, f32),
 }
 
-struct ParticleManager {
-    width: i32,
-    height: i32,
-    wind: f32,
-
+struct Renderer {
+    viewport_width: i32,
+    viewport_height: i32,
     particles: Vec<Particle>,
     frames: Vec<String>,
 }
 
-impl ParticleManager {
-    fn new(width: i32, height: i32, wind: f32) -> Self {
+impl Renderer {
+    fn new(width: i32, height: i32) -> Self {
         Self {
-            width,
-            height,
-            wind,
+            viewport_width: width,
+            viewport_height: height,
             particles: vec![],
             frames: vec![],
         }
@@ -33,39 +36,39 @@ impl ParticleManager {
         let weight = weight.floor() as i32;
 
         let ascii = match weight {
-            0..=2 => ' ',
-            3..=4 => '.',
-            5..=6 => '*',
+            0 => ' ',
+            1..=2 => '.',
+            3..=4 => '*',
             _ => '#',
         };
 
         ascii
     }
 
-    fn add_particle(&mut self, x: f32) {
-        if x > self.width as f32 {
-            panic!("Particle.x cannot be greater than ParticleManager.width");
+    fn add_particle(&mut self, x: f32, y: f32) -> &mut Particle {
+        // Prevent placing particles outside the bounding box of the simulation
+        if x > self.viewport_width as f32 || x < 0.0 {
+            panic!("particle.position.x must be within bounding box");
         }
-
-        if x < 0.0 {
-            panic!("Particle.x cannot be less than zero");
+        if y < 0.0 || y > self.viewport_height as f32 {
+            panic!("particle.position.y must be within bounding box");
         }
 
         self.particles.push(Particle {
-            x,
-            y: 0.0,
+            position: Vector2::new(x, y),
+            velocity: Vector2::new(0.0, 0.0),
             influence: 1.0,
-            velocity: (0.0, 0.0),
-        })
+        });
+
+        self.particles.last_mut().unwrap()
     }
 
     fn process_frame(&mut self) {
-        let mut frame_data = Vec::with_capacity(self.height as usize);
+        // Create 2D array to store frame data
+        let mut frame_data = Vec::with_capacity(self.viewport_height as usize);
 
-        for _ in 0..self.height {
-            let mut line = Vec::with_capacity(self.width as usize);
-            line.fill(0.0);
-
+        for _ in 0..self.viewport_height {
+            let line = vec![0.0; self.viewport_width as usize];
             frame_data.push(line);
         }
 
@@ -74,13 +77,18 @@ impl ParticleManager {
 
         for particle in self.particles.iter_mut() {
             // Apply velocity
-            particle.x += particle.velocity.0.clamp(0.0, self.width as f32 - 1.0);
-            particle.y += particle.velocity.1.clamp(0.0, self.height as f32 - 1.0);
+            particle.position.x += particle.velocity.x;
+            particle.position.y += particle.velocity.y;
 
+            // Clamp positions inside of bounding box
+            particle.position.x = particle.position.x.clamp(0.0, self.viewport_width as f32 - 0.01);
+            particle.position.y = particle.position.y.clamp(0.0, self.viewport_height as f32 - 0.01);
+            
             // Update data in closest cell
-            x = particle.x.round() as usize;
-            y = particle.y.round() as usize;
-            frame_data[y][x] += particle.influence / 10.0;
+            x = particle.position.x.floor() as usize;
+            y = particle.position.y.floor() as usize;
+
+            frame_data[y][x] += particle.influence;
         }
 
         // Generate frame as a single string
@@ -90,7 +98,9 @@ impl ParticleManager {
             for weight in line {
                 frame_string.push(self.as_ascii(weight))
             }
+            frame_string.push('\n');
         }
+
 
         self.frames.push(frame_string);
     }
@@ -99,28 +109,28 @@ impl ParticleManager {
 fn main() {
     let width = 16;
     let height = 6;
-    let wind = 0.0;
 
-    let mut manager = ParticleManager::new(width, height, wind);
+    let mut manager = Renderer::new(width, height);
 
-    manager.add_particle(0.0);
+    let max_frames = 100;
+    let frames_per_particle = 1;
 
-    let mut counter = 0;
+    let mut frames_passed = 0;
 
-    let max_frames = 1;
-    for i in 0..max_frames {
+    for _ in 0..max_frames {
+        if frames_passed == frames_per_particle {
+            let x_offset = thread_rng().gen::<f32>();
+            let y_offset = thread_rng().gen::<f32>();
+            manager.add_particle(x_offset * manager.viewport_width as f32, y_offset * manager.viewport_height as f32);
+            frames_passed = 0;
+        };
+
         manager.process_frame();
 
-        counter += 1;
-
-        if counter == 10 {
-            let offset = thread_rng().gen::<f32>();
-            manager.add_particle(offset * width as f32);
-            counter = 0;
-        }
+        frames_passed += 1;
     }
 
-    let fps = 4.0;
+    let fps = 24.0;
     for frame in manager.frames {
         // Clear terminal
         print!("\x1B[2J");
@@ -128,6 +138,7 @@ fn main() {
         println!("{}", frame);
 
         // Wait a little bit to make it watchable
-        sleep(Duration::from_secs_f32(1.0 / fps));
+        let duration = Duration::from_secs_f32(1.0 / fps);
+        sleep(duration);
     }
 }
