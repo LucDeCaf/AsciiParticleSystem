@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use rand::prelude::*;
+use rand_distr::{Normal, Distribution}
 
 use crate::{renderer::Renderer, vector2::Vector2};
 
 pub struct SteamRenderer {
     pub options: SteamRendererOptions,
 
-    current_max_id: u32,
+    current_highest_id: u32,
     particles: HashMap<u32, SteamParticle>,
     frame_data: Vec<Vec<char>>,
 }
@@ -70,28 +71,31 @@ impl Renderer for SteamRenderer {
     }
 
     fn update_simulation(&mut self) {
-        let mut particles_to_delete = vec![];
+        let mut particle_ids_to_delete = vec![];
 
         // Update positions
-        for (_id, particle) in self.particles.iter_mut() {
+        for (id, particle) in self.particles.iter_mut() {
             particle.position.x += self.options.wind;
             particle.position.y += self.options.rise_speed;
 
             let delete_particle = particle.update();
 
             if delete_particle{
-                particles_to_delete.push(particle);
+                particle_ids_to_delete.push(*id);
             }
         }
 
         // TODO: Delete particles
+        for id in particle_ids_to_delete {
+            self.particles.remove(&id);
+        }
     }
 }
 
 impl SteamRenderer {
     pub fn new(options: SteamRendererOptions) -> Self {
         Self {
-            current_max_id: 0,
+            current_highest_id: 0,
             particles: HashMap::new(),
             frame_data: vec![vec![' '; options.width]; options.height],
             options,
@@ -99,14 +103,15 @@ impl SteamRenderer {
     }
 
     pub fn spawn_particle(&mut self) {
-        let id = self.current_max_id;
-        self.current_max_id += 1;
+        let mut normal = Normal::new(0.0, );
+        let mut random = thread_rng();
+        let id = self.current_highest_id;
+        self.current_highest_id += 1;
 
-        let mut rng = thread_rng();
-        let left = rng.gen_bool(0.5);
-        let start_x = rng.gen::<f32>() * self.options.width as f32;
-        let frames_between_flips = rng.gen_range(0..4);
-        let lifespan = rng.gen_range(30..80);
+        let left = random.gen_bool(0.5);
+        let start_x = random.gen::<f32>() * self.options.width as f32;
+        let frames_between_flips = random.gen_range(0..4);
+        let lifespan = random.gen_range(30..80);
 
         self.particles.insert(id, SteamParticle {
             position: Vector2::new(start_x, 0.0),
@@ -125,7 +130,6 @@ impl SteamParticle {
     /**
     Updates the particle's internal properties.
     This function is meant to be called on every frame.
-
      Returns a boolean indicating whether the particle should be deleted or not.
     */
     fn update(&mut self) -> bool {
