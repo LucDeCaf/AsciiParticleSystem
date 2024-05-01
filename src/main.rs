@@ -1,24 +1,9 @@
-use ascii_renderer::{
-    renderer::Renderer,
-    steam_renderer::{SteamRenderer, SteamRendererOptions},
-};
+use ascii_renderer::{coffee::Coffee, renderer::Renderer, steam_renderer::SteamRendererOptions};
 
 use std::{thread::sleep, time::Duration};
 
 fn main() {
-    // It looks better without the escape characters
-    let cup = "          _________________________
-         : _ _ _ _ _ _ _ _ _ _ _ _ :
-     ,---:\".\".\".\".\".\".\".\".\".\".\".\".\":
-    : ,'\"`::.:.:.:.:.:.:.:.:.:.:.::'
-    `.`.  `:-===-===-===-===-===-:'
-      `.`-._:                   :
-        `-.__`.               ,'
-    ,--------`\"`-------------'--------.
-     `\"--.__                   __.--\"'
-            `\"\"-------------\"\"'";
-
-    let mut renderer = SteamRenderer::new(SteamRendererOptions {
+    let mut renderer = Coffee::new(SteamRendererOptions {
         width: 25,
         height: 8,
         offset: 10,
@@ -56,10 +41,8 @@ fn main() {
     // Playback all frames at the specified fps
     let fps = 8.0;
     for frame in frames {
-        // Clear terminal
-        print!("\x1B[2J");
-
-        print!("\x1B[2J{frame}{cup}");
+        // Printing "x1B[2J" clears the terminal
+        print!("\x1B[2J{frame}");
 
         let duration = Duration::from_secs_f32(1.0 / fps);
         sleep(duration);
