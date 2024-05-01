@@ -16,10 +16,7 @@ pub struct SteamRendererOptions {
     pub width: usize,
     pub height: usize,
     pub offset: usize,
-
     pub rise_speed: f32,
-    pub wind: f32,
-    pub max_speed: f32,
 }
 
 pub struct SteamParticle {
@@ -75,12 +72,8 @@ impl Renderer for SteamRenderer {
 
         // Update positions and velocities
         for (id, particle) in self.particles.iter_mut() {
-            particle.velocity.x = (particle.velocity.x + self.options.wind)
-                .clamp(-self.options.max_speed, self.options.max_speed);
-            // particle.velocity.y += Y_VELOCITY_FACTOR
-
             particle.position.x += particle.velocity.x;
-            particle.position.y += particle.velocity.y;
+            particle.position.y += self.options.rise_speed;
 
             let delete_particle = particle.update();
 

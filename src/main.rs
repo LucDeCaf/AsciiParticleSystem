@@ -8,8 +8,6 @@ fn main() {
         height: 8,
         offset: 10,
         rise_speed: 0.1,
-        wind: 0.0,
-        max_speed: 0.5,
     });
 
     // Pre-generate frames
