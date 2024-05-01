@@ -19,10 +19,12 @@ pub struct SteamRendererOptions {
 
     pub rise_speed: f32,
     pub wind: f32,
+    pub max_speed: f32,
 }
 
 pub struct SteamParticle {
     pub position: Vector2<f32>,
+    pub velocity: Vector2<f32>,
     pub left: bool,
     pub frames_between_flips: u32,
     pub lifespan: u32,
@@ -71,10 +73,13 @@ impl Renderer for SteamRenderer {
     fn update_simulation(&mut self) {
         let mut particle_ids_to_delete = vec![];
 
-        // Update positions
+        // Update positions and velocities
         for (id, particle) in self.particles.iter_mut() {
-            particle.position.x += self.options.wind;
-            particle.position.y += self.options.rise_speed;
+            particle.velocity.x = (particle.velocity.x + self.options.wind).clamp(-self.options.max_speed, self.options.max_speed); 
+            // particle.velocity.y += Y_VELOCITY_FACTOR
+            
+            particle.position.x += particle.velocity.x;
+            particle.position.y += particle.velocity.y;
 
             let delete_particle = particle.update();
 
@@ -124,6 +129,7 @@ impl SteamRenderer {
             id,
             SteamParticle {
                 position: Vector2::new(x, 0.0),
+                velocity: Vector2::new(0.0, self.options.rise_speed),
                 left,
                 frames_between_flips,
                 lifespan,
